@@ -49,9 +49,6 @@ if canSave and isfile(SAVE_FILE) then
 end
 
 local currentBond = parseBond(bondPath.Text)
-if savedUrl ~= "" then
-    task.delay(1.5, sendToProxy)
-end
 
 -- === Safe HTTP Request
 local httpRequest = request or http_request or (syn and syn.request)
@@ -91,7 +88,7 @@ local function sendToProxy()
 end
 
 -- === Auto-send on gameplay
-if game.PlaceId == GAME_PLACE_ID then
+if game.PlaceId == LOBBY_PLACE_ID then
 	task.delay(1.5, sendToProxy)
 	return -- do not show UI
 end
