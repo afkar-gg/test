@@ -32,8 +32,8 @@ end
 
 local function parseBond(str)
 	local t = tostring(str or "")
-	local num = t:match("[%d,]+") or "0"
-	return tonumber(num:gsub(",", "")) or 0
+	local clean = t:gsub(",", ""):match("%d+")
+	return tonumber(clean) or 0
 end
 
 -- === Load Saved Config ===
