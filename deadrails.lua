@@ -50,6 +50,25 @@ end
 
 local currentBond = parseBond(bondPath.Text)
 
+if savedUrl ~= "" then
+	task.delay(1, function()
+		print("[Bond Tracker] 🔁 Auto-sending bond info to proxy...")
+		local payload = {
+			username = username,
+			bonds = currentBond,
+			placeId = tostring(game.PlaceId)
+		}
+		pcall(function()
+			http_request({
+				Url = savedUrl .. "/bond",
+				Method = "POST",
+				Headers = { ["Content-Type"] = "application/json" },
+				Body = HttpService:JSONEncode(payload)
+			})
+		end)
+	end)
+end
+
 -- === Function to Send to Proxy ===
 local function sendToProxy()
 	if savedUrl == "" then return end
