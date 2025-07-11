@@ -1,0 +1,199 @@
+if not game:IsLoaded() then game.Loaded:Wait() end
+
+local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
+local CoreGui = game:GetService("CoreGui")
+local player = Players.LocalPlayer
+local username = player.Name
+
+-- === Constants ===
+local PLACE_ID_LOBBY = 126884695634066
+local PLACE_ID_GAME  = 70876832253163
+
+local CONFIG_FOLDER = "joki_config"
+local SAVE_FILE = CONFIG_FOLDER .. "/bond_data.json"
+local canSave = isfile and writefile and readfile and makefolder
+
+if canSave and not isfolder(CONFIG_FOLDER) then
+	pcall(makefolder, CONFIG_FOLDER)
+end
+
+-- === GUI Path to Bonds ===
+local success, bondPath = pcall(function()
+	return player:WaitForChild("PlayerGui")
+		:WaitForChild("BondDisplay")
+		:WaitForChild("BondInfo")
+		:WaitForChild("BondCount")
+end)
+if not success or not bondPath then
+	warn("❌ Bond GUI not found")
+	return
+end
+
+-- === Safe Bond Parser ===
+local function parseBond(str)
+	local t = tostring(str or "")
+	local num = t:match("[%d,]+") or "0"
+	return tonumber(num:gsub(",", "")) or 0
+end
+
+-- === Load Saved Data ===
+local savedBond, savedUrl = 0, ""
+if canSave and isfile(SAVE_FILE) then
+	local ok, result = pcall(function()
+		return HttpService:JSONDecode(readfile(SAVE_FILE))
+	end)
+	if ok and result then
+		savedBond = tonumber(result.saved) or 0
+		savedUrl = tostring(result.proxy or "")
+	end
+end
+
+local currentBond = parseBond(bondPath.Text)
+
+-- === GUI Setup ===
+pcall(function() CoreGui:FindFirstChild("BondTrackerUI"):Destroy() end)
+
+local gui = Instance.new("ScreenGui", CoreGui)
+gui.Name = "BondTrackerUI"
+gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 340, 0, 230)
+frame.Position = UDim2.new(0.5, -170, 0.5, -115)
+frame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+frame.BorderColor3 = Color3.fromRGB(85, 85, 105)
+frame.BorderSizePixel = 2
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, 0, 0, 28)
+title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+title.Text = "🔎 Bond Tracker (Dead Rails)"
+title.TextColor3 = Color3.new(1, 1, 1)
+title.Font = Enum.Font.SourceSansBold
+title.TextSize = 16
+
+local bondLabel = Instance.new("TextLabel", frame)
+bondLabel.Position = UDim2.new(0, 0, 0, 35)
+bondLabel.Size = UDim2.new(1, 0, 0, 20)
+bondLabel.BackgroundTransparency = 1
+bondLabel.TextColor3 = Color3.new(1, 1, 1)
+bondLabel.Text = "💰 Current Bonds: " .. currentBond
+bondLabel.Font = Enum.Font.SourceSans
+bondLabel.TextSize = 16
+
+local diffLabel = Instance.new("TextLabel", frame)
+diffLabel.Position = UDim2.new(0, 0, 0, 58)
+diffLabel.Size = UDim2.new(1, 0, 0, 20)
+diffLabel.BackgroundTransparency = 1
+diffLabel.TextColor3 = Color3.new(1, 1, 1)
+diffLabel.Text = "📈 Gained: " .. (currentBond - savedBond)
+diffLabel.Font = Enum.Font.SourceSans
+diffLabel.TextSize = 16
+
+-- === Proxy URL Textbox ===
+local urlBox = Instance.new("TextBox", frame)
+urlBox.Position = UDim2.new(0.05, 0, 0, 85)
+urlBox.Size = UDim2.new(0.9, 0, 0, 26)
+urlBox.Text = savedUrl
+urlBox.PlaceholderText = "https://your.proxy"
+urlBox.TextColor3 = Color3.new(1, 1, 1)
+urlBox.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+urlBox.BorderColor3 = Color3.fromRGB(85, 85, 105)
+urlBox.ClearTextOnFocus = false
+urlBox.Font = Enum.Font.SourceSans
+urlBox.TextSize = 14
+Instance.new("UICorner", urlBox).CornerRadius = UDim.new(0, 4)
+
+-- === Buttons ===
+local sendBtn = Instance.new("TextButton", frame)
+sendBtn.Position = UDim2.new(0.1, 0, 0, 120)
+sendBtn.Size = UDim2.new(0.35, 0, 0, 36)
+sendBtn.Text = "Send"
+sendBtn.Font = Enum.Font.SourceSansBold
+sendBtn.TextColor3 = Color3.new(1, 1, 1)
+sendBtn.BackgroundColor3 = Color3.fromRGB(88, 101, 242)
+Instance.new("UICorner", sendBtn).CornerRadius = UDim.new(0, 6)
+
+local resetBtn = Instance.new("TextButton", frame)
+resetBtn.Position = UDim2.new(0.55, 0, 0, 120)
+resetBtn.Size = UDim2.new(0.35, 0, 0, 36)
+resetBtn.Text = "Reset"
+resetBtn.Font = Enum.Font.SourceSansBold
+resetBtn.TextColor3 = Color3.new(1, 1, 1)
+resetBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
+Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
+
+-- === Zone Label (lobby or game) ===
+local zoneLabel = Instance.new("TextLabel", frame)
+zoneLabel.Position = UDim2.new(0, 0, 0, 170)
+zoneLabel.Size = UDim2.new(1, 0, 0, 20)
+zoneLabel.BackgroundTransparency = 1
+zoneLabel.TextColor3 = Color3.new(1, 1, 1)
+zoneLabel.Text = "🌍 Zone: " .. (game.PlaceId == PLACE_ID_GAME and "Gameplay" or "Lobby")
+zoneLabel.Font = Enum.Font.SourceSans
+zoneLabel.TextSize = 14
+
+-- === Update loop ===
+task.spawn(function()
+	while task.wait(1) do
+		currentBond = parseBond(bondPath.Text)
+		bondLabel.Text = "💰 Current Bonds: " .. currentBond
+		diffLabel.Text = "📈 Gained: " .. (currentBond - savedBond)
+	end
+end)
+
+-- === Save proxy on text change ===
+urlBox:GetPropertyChangedSignal("Text"):Connect(function()
+	savedUrl = urlBox.Text
+	if canSave then
+		pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedBond, proxy = savedUrl }))
+	end
+end)
+
+-- === Reset Button ===
+resetBtn.MouseButton1Click:Connect(function()
+	savedBond = currentBond
+	if canSave then
+		pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedBond, proxy = savedUrl }))
+	end
+end)
+
+-- === Send to Proxy (/bond) ===
+local function sendToProxy()
+	if savedUrl == "" then
+		sendBtn.Text = "No URL"
+		task.wait(1.5)
+		sendBtn.Text = "Send"
+		return
+	end
+
+	local placeId = game.PlaceId
+	local body = HttpService:JSONEncode({
+		username = username,
+		bonds = currentBond,
+		placeId = tostring(placeId)
+	})
+
+	pcall(function()
+		http_request({
+			Url = savedUrl .. "/bond",
+			Method = "POST",
+			Headers = {["Content-Type"] = "application/json"},
+			Body = body
+		})
+	end)
+
+	sendBtn.Text = "✅ Sent!"
+	task.wait(1.5)
+	sendBtn.Text = "Send"
+end
+
+sendBtn.MouseButton1Click:Connect(sendToProxy)
+
+-- Auto send on run
+task.delay(2, sendToProxy)
