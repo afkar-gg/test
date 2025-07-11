@@ -90,7 +90,6 @@ end
 -- === Auto-send on gameplay
 if game.PlaceId == LOBBY_PLACE_ID then
 	task.delay(1.5, sendToProxy)
-	return -- do not show UI
 end
 
 -- === Lobby timeout alert
