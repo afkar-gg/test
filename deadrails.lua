@@ -71,20 +71,29 @@ end
 
 -- === Function to Send to Proxy ===
 local function sendToProxy()
-	if savedUrl == "" then return end
-	local payload = {
-		username = username,
-		bonds = currentBond,
-		placeId = tostring(game.PlaceId)
-	}
-	pcall(function()
-		http_request({
-			Url = savedUrl .. "/bond",
-			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = HttpService:JSONEncode(payload)
-		})
-	end)
+        if savedUrl == "" then
+                warn("[Bond Tracker] ❌ Proxy URL not set.")
+                return
+        end
+
+        currentBond = parseBond(bondPath.Text)
+        local payload = {
+                username = username,
+                bonds = currentBond,
+                placeId = tostring(game.PlaceId)
+        }
+
+        print("[Bond Tracker] 📡 Sending bond data to:", savedUrl)
+        print(HttpService:JSONEncode(payload))
+
+        pcall(function()
+                http_request({
+                        Url = savedUrl .. "/bond",
+                        Method = "POST",
+                        Headers = { ["Content-Type"] = "application/json" },
+                        Body = HttpService:JSONEncode(payload)
+                })
+        end)
 end
 
 -- === Automatically send on gameplay ===
