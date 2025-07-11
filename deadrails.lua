@@ -7,7 +7,7 @@ local player = Players.LocalPlayer
 local username = player.Name
 
 -- === Place IDs ===
-local LOBBY_PLACE_ID = 126884695634066
+local LOBBY_PLACE_ID = 116495829188952
 local GAME_PLACE_ID = 70876832253163
 
 -- === Storage Path ===
