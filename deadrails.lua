@@ -6,6 +6,13 @@ local CoreGui = game:GetService("CoreGui")
 local player = Players.LocalPlayer
 local username = player.Name
 
+-- === Executors: Detect HTTP function ===
+local request = http_request or request or (syn and syn.request)
+if not request then
+    warn("❌ Your executor does not support http_request.")
+    return
+end
+
 -- === Place IDs ===
 local LOBBY_PLACE_ID = 116495829188952
 local GAME_PLACE_ID = 70876832253163
@@ -19,110 +26,95 @@ if canSave and not isfolder(CONFIG_FOLDER) then pcall(makefolder, CONFIG_FOLDER)
 
 -- === Bond Count Reference ===
 local success, bondPath = pcall(function()
-	return player:WaitForChild("PlayerGui")
-		:WaitForChild("BondDisplay")
-		:WaitForChild("BondInfo")
-		:WaitForChild("BondCount")
+    return player:WaitForChild("PlayerGui")
+        :WaitForChild("BondDisplay")
+        :WaitForChild("BondInfo")
+        :WaitForChild("BondCount")
 end)
 
 if not success or not bondPath then
-	warn("❌ Bond GUI not found.")
-	return
+    warn("❌ Bond GUI not found.")
+    return
 end
 
 local function parseBond(str)
-	local t = tostring(str or "")
-	local clean = t:gsub(",", ""):match("%d+")
-	return tonumber(clean) or 0
+    local t = tostring(str or "")
+    local clean = t:gsub(",", ""):match("%d+")
+    return tonumber(clean) or 0
 end
 
 -- === Load Saved Config ===
 local savedBond, savedUrl = 0, ""
 if canSave and isfile(SAVE_FILE) then
-	local ok, result = pcall(function()
-		return HttpService:JSONDecode(readfile(SAVE_FILE))
-	end)
-	if ok and result then
-		savedBond = tonumber(result.saved) or 0
-		savedUrl = tostring(result.proxy or "")
-	end
+    local ok, result = pcall(function()
+        return HttpService:JSONDecode(readfile(SAVE_FILE))
+    end)
+    if ok and result then
+        savedBond = tonumber(result.saved) or 0
+        savedUrl = tostring(result.proxy or "")
+    end
 end
 
 local currentBond = parseBond(bondPath.Text)
 
-if savedUrl ~= "" then
-	task.delay(1, function()
-		print("[Bond Tracker] 🔁 Auto-sending bond info to proxy...")
-		local payload = {
-			username = username,
-			bonds = currentBond,
-			placeId = tostring(game.PlaceId)
-		}
-		pcall(function()
-			http_request({
-				Url = savedUrl .. "/bond",
-				Method = "POST",
-				Headers = { ["Content-Type"] = "application/json" },
-				Body = HttpService:JSONEncode(payload)
-			})
-		end)
-	end)
-end
-
 -- === Function to Send to Proxy ===
 local function sendToProxy()
-        if savedUrl == "" then
-                warn("[Bond Tracker] ❌ Proxy URL not set.")
-                return
-        end
+    if savedUrl == "" then
+        warn("[Bond Tracker] ❌ No proxy URL.")
+        return
+    end
+    if savedUrl:sub(-1) == "/" then
+        savedUrl = savedUrl:sub(1, -2)
+    end
 
-        currentBond = parseBond(bondPath.Text)
-        local payload = {
-                username = username,
-                bonds = currentBond,
-                placeId = tostring(game.PlaceId)
-        }
+    currentBond = parseBond(bondPath.Text)
+    local payload = {
+        username = username,
+        bonds = currentBond,
+        placeId = tostring(game.PlaceId)
+    }
 
-        print("[Bond Tracker] 📡 Sending bond data to:", savedUrl)
-        print(HttpService:JSONEncode(payload))
+    print("[Bond Tracker] 📡 Sending to:", savedUrl .. "/bond")
+    print(HttpService:JSONEncode(payload))
 
-        pcall(function()
-                http_request({
-                        Url = savedUrl .. "/bond",
-                        Method = "POST",
-                        Headers = { ["Content-Type"] = "application/json" },
-                        Body = HttpService:JSONEncode(payload)
-                })
-        end)
+    local success, err = pcall(function()
+        request({
+            Url = savedUrl .. "/bond",
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode(payload)
+        })
+    end)
+    if not success then
+        warn("❌ Failed to send:", err)
+    end
 end
 
 -- === Automatically send on gameplay ===
 if game.PlaceId == GAME_PLACE_ID then
-	task.delay(1.5, sendToProxy)
-	return -- don't show UI in gameplay
+    task.delay(1.5, sendToProxy)
+    return -- No UI on gameplay
 end
 
--- === If lobby: start lobby timer ===
+-- === Lobby: Idle alert ===
 if game.PlaceId == LOBBY_PLACE_ID then
-	task.delay(60, function()
-		if game.PlaceId == LOBBY_PLACE_ID then
-			-- alert proxy after 1 minute idle in lobby
-			if savedUrl and savedUrl ~= "" then
-				local body = HttpService:JSONEncode({
-					username = username,
-					alert = "lobby_idle"
-				})
-				pcall(function()
-					http_request({
-						Url = savedUrl .. "/bond",
-						Method = "POST",
-						Headers = { ["Content-Type"] = "application/json" },
-						Body = body
-					})
-				end)
-			end
-		end
-	end)
+    task.delay(60, function()
+        if game.PlaceId == LOBBY_PLACE_ID and savedUrl ~= "" then
+            local payload = {
+                username = username,
+                alert = "lobby_idle"
+            }
+            print("⚠️ Sending lobby idle alert...")
+            pcall(function()
+                request({
+                    Url = savedUrl .. "/bond",
+                    Method = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                    Body = HttpService:JSONEncode(payload)
+                })
+            end)
+        end
+    end)
 end
 
 -- === UI ===
@@ -169,7 +161,7 @@ diffLabel.Text = "📈 Gained: " .. (currentBond - savedBond)
 diffLabel.Font = Enum.Font.SourceSans
 diffLabel.TextSize = 16
 
--- === Proxy URL Box ===
+-- === Proxy URL Input ===
 local urlBox = Instance.new("TextBox", frame)
 urlBox.Position = UDim2.new(0.05, 0, 0, 85)
 urlBox.Size = UDim2.new(0.9, 0, 0, 26)
@@ -202,27 +194,31 @@ resetBtn.TextColor3 = Color3.new(1, 1, 1)
 resetBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
 Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
 
--- === Listeners ===
+-- === Event Listeners ===
 urlBox:GetPropertyChangedSignal("Text"):Connect(function()
-	savedUrl = urlBox.Text
-	if canSave then
-		pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedBond, proxy = savedUrl }))
-	end
+    savedUrl = urlBox.Text
+    if canSave then
+        pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedBond, proxy = savedUrl }))
+    end
 end)
 
-sendBtn.MouseButton1Click:Connect(sendToProxy)
+sendBtn.MouseButton1Click:Connect(function()
+    sendBtn.Text = "Sending..."
+    sendToProxy()
+    task.delay(2, function() sendBtn.Text = "Send" end)
+end)
 
 resetBtn.MouseButton1Click:Connect(function()
-	savedBond = currentBond
-	if canSave then
-		pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedBond, proxy = savedUrl }))
-	end
+    savedBond = parseBond(bondPath.Text)
+    if canSave then
+        pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedBond, proxy = savedUrl }))
+    end
 end)
 
 task.spawn(function()
-	while task.wait(1) do
-		currentBond = parseBond(bondPath.Text)
-		bondLabel.Text = "💰 Current Bonds: " .. currentBond
-		diffLabel.Text = "📈 Gained: " .. (currentBond - savedBond)
-	end
+    while task.wait(1) do
+        currentBond = parseBond(bondPath.Text)
+        bondLabel.Text = "💰 Current Bonds: " .. currentBond
+        diffLabel.Text = "📈 Gained: " .. (currentBond - savedBond)
+    end
 end)
