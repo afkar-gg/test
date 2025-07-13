@@ -90,13 +90,13 @@ end
 task.delay(1.5, sendToProxy)
 
 if game.PlaceId == GAME_PLACE_ID then
-	task.spawn(function()
-		while true do
-			task.wait(10) -- every 10 seconds
-			currentBond = parseBond(bondPath.Text)
-			sendToProxy()
-		end
-	end)
+    task.spawn(function()
+        while true do
+            task.wait(10) -- Sends update every 10 seconds
+            currentBond = parseBond(bondPath.Text)
+            sendToProxy()
+        end
+    end)
 end
 
 -- === Lobby timeout alert
