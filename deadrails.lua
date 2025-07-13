@@ -87,10 +87,7 @@ local function sendToProxy()
 	end
 end
 
--- === Auto-send on gameplay
-if game.PlaceId == LOBBY_PLACE_ID then
-	task.delay(1.5, sendToProxy)
-end
+task.delay(1.5, sendToProxy)
 
 -- === Lobby timeout alert
 if game.PlaceId == LOBBY_PLACE_ID then
