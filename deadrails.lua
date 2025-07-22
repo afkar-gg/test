@@ -1,6 +1,5 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
 
-local Version = V2.0.0
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -174,7 +173,7 @@ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-title.Text = "🔎 Bond Tracker (Dead Rails)" .. Version,
+title.Text = "🔎 Bond Tracker (Dead Rails) V2.0.0"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 16
