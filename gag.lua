@@ -132,59 +132,76 @@ end)
 
 -- Send /track and loop /check
 execBtn.MouseButton1Click:Connect(function()
-        local proxy = urlBox.Text
-        if proxy == "" then status.Text = "❌ Missing URL"; return end
+	local proxy = urlBox.Text
+	if proxy == "" then
+		status.Text = "❌ Missing URL"
+		return
+	end
 
-        local success, response = pcall(function()
-                return request({
-                        Url = proxy .. "/track",
-                        Method = "POST",
-                        Headers = {["Content-Type"] = "application/json"},
-                        Body = HttpService:JSONEncode({ username = player.Name })
-                })
-        end)
+	local checking = true -- 🔄 tracking control
+	local kicked = false
 
-        if not success or response.StatusCode ~= 200 then
-                status.Text = "❌ /track failed (" .. (response and response.StatusCode or "?") .. ")"
-                return
-        end
+	player.OnTeleport:Connect(function(state)
+		if state == Enum.TeleportState.Failed or state == Enum.TeleportState.Kicked then
+			kicked = true
+			checking = false
+			warn("🔌 Player kicked or teleport failed. Stopping /check loop.")
+		end
+	end)
 
-        local data = HttpService:JSONDecode(response.Body)
-        local endTime = tonumber(data.endTime)
+	-- Start session (/track)
+	local success, response = pcall(function()
+		return request({
+			Url = proxy .. "/track",
+			Method = "POST",
+			Headers = { ["Content-Type"] = "application/json" },
+			Body = HttpService:JSONEncode({ username = player.Name })
+		})
+	end)
 
-        if not endTime then
-                status.Text = "❌ No endTime received"
-                return
-        end
+	if not success or response.StatusCode ~= 200 then
+		status.Text = "❌ /track failed (" .. (response and response.StatusCode or "?") .. ")"
+		return
+	end
 
-        status.Text = "✅ Session started"
+	local data = HttpService:JSONDecode(response.Body)
+	local endTime = tonumber(data.endTime)
 
-        task.spawn(function()
-                while os.time() < math.floor(endTime / 1000) do
-                        local left = math.floor(endTime / 1000) - os.time()
-                        status.Text = string.format("⏳ %02d:%02d left", left // 60, left % 60)
+	if not endTime then
+		status.Text = "❌ No endTime received"
+		return
+	end
 
-                        pcall(function()
-                                request({
-                                        Url = proxy .. "/check",
-                                        Method = "POST",
-                                        Headers = {["Content-Type"] = "application/json"},
-                                        Body = HttpService:JSONEncode({ username = player.Name })
-                                })
-                        end)
+	status.Text = "✅ Session started"
 
-                        task.wait(60)
-                end
+	task.spawn(function()
+		while checking and os.time() < math.floor(endTime / 1000) do
+			local left = math.floor(endTime / 1000) - os.time()
+			status.Text = string.format("⏳ %02d:%02d left", left // 60, left % 60)
 
-                pcall(function()
-                        request({
-                                Url = proxy .. "/complete",
-                                Method = "POST",
-                                Headers = {["Content-Type"] = "application/json"},
-                                Body = HttpService:JSONEncode({ username = player.Name })
-                        })
-                end)
+			pcall(function()
+				request({
+					Url = proxy .. "/check",
+					Method = "POST",
+					Headers = { ["Content-Type"] = "application/json" },
+					Body = HttpService:JSONEncode({ username = player.Name })
+				})
+			end)
 
-                status.Text = "✅ Joki completed"
-        end)
+			task.wait(60)
+		end
+
+		if not kicked then
+			-- Session complete
+			pcall(function()
+				request({
+					Url = proxy .. "/complete",
+					Method = "POST",
+					Headers = { ["Content-Type"] = "application/json" },
+					Body = HttpService:JSONEncode({ username = player.Name })
+				})
+			end)
+			status.Text = "✅ Joki completed"
+		end
+	end)
 end)
