@@ -58,33 +58,38 @@ if not httpRequest then
 end
 
 local function sendToProxy()
-	if savedUrl == "" then
-		warn("[Bond Tracker] ❌ No Proxy URL Set")
-		return
-	end
+  if savedUrl == "" then
+    warn("[Bond Tracker] ❌ No Proxy URL Set")
+    return
+  end
 
-	local body = {
-		username = username,
-		bonds = currentBond,
-		placeId = tostring(game.PlaceId)
-	}
+  currentBond = parseBond(bondPath.Text)
+  print("[Bond Tracker] ⏱ Sending bond:", currentBond)
 
-	local payload = HttpService:JSONEncode(body)
+  local body = {
+    username = username,
+    bonds = currentBond,
+    placeId = tostring(game.PlaceId)
+  }
 
-	local success, res = pcall(function()
-		return httpRequest({
-			Url = savedUrl .. "/bond",
-			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = payload
-		})
-	end)
+  local payload = HttpService:JSONEncode(body)
 
-	if success then
-		print("[Bond Tracker] ✅ Sent to Proxy:", payload)
-	else
-		warn("[Bond Tracker] ❌ Failed to send:", res)
-	end
+  local success, res = pcall(function()
+    return httpRequest({
+      Url = savedUrl .. "/bond",
+      Method = "POST",
+      Headers = { ["Content-Type"] = "application/json" },
+      Body = payload
+    })
+  end)
+
+  if success and res and res.StatusCode == 200 then
+    print("[Bond Tracker] ✅ Sent to Proxy:", payload)
+  else
+    warn("[Bond Tracker] ❌ Failed to send:", res and res.StatusCode or "error")
+    -- Retry once after 5 seconds
+    task.delay(5, sendToProxy)
+  end
 end
 
 task.delay(1.5, sendToProxy)
