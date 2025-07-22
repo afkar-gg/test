@@ -230,8 +230,16 @@ end)
 
 sendBtn.MouseButton1Click:Connect(function()
 	sendBtn.Text = "Sending..."
-	sendToProxy()
-	task.delay(1.5, function() sendBtn.Text = "Send" end)
+
+	sendTrack()
+
+	task.delay(0.2, function()
+		sendToProxy()
+	end)
+
+	task.delay(1.5, function()
+		sendBtn.Text = "Send"
+	end)
 end)
 
 resetBtn.MouseButton1Click:Connect(function()
