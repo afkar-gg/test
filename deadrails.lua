@@ -57,6 +57,24 @@ if not httpRequest then
 	return
 end
 
+local function sendTrack()
+	local response
+	local success, err = pcall(function()
+		response = request({
+			Url = savedUrl .. "/track",
+			Method = "POST",
+			Headers = {["Content-Type"] = "application/json"},
+			Body = HttpService:JSONEncode({ username = username })
+		})
+	end)
+
+	if success and response and response.StatusCode == 200 then
+		print("✅ /track called successfully.")
+	else
+		warn("❌ Failed to call /track", err or response.StatusCode)
+	end
+end
+
 local function sendToProxy()
   if savedUrl == "" then
     warn("[Bond Tracker] ❌ No Proxy URL Set")
