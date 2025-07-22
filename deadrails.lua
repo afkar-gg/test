@@ -1,5 +1,6 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
 
+local Version = V2.0.0
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -57,16 +58,25 @@ if not httpRequest then
 	return
 end
 
-local function sendTrack()
-	local response
-	local success, err = pcall(function()
-		response = request({
+function sendTrack(callback)
+	local ok, res = pcall(function()
+		return httpRequest({
 			Url = savedUrl .. "/track",
 			Method = "POST",
-			Headers = {["Content-Type"] = "application/json"},
+			Headers = { ["Content-Type"] = "application/json" },
 			Body = HttpService:JSONEncode({ username = username })
 		})
 	end)
+
+	if ok and res and res.StatusCode == 200 then
+		print("[Bond Tracker] ✅ /track success")
+		if callback then
+			task.delay(0.5, callback) -- 🔁 delay bond after transition
+		end
+	else
+		warn("[Bond Tracker] ❌ /track failed")
+	end
+end
 
 	if success and response and response.StatusCode == 200 then
 		print("✅ /track called successfully.")
@@ -164,7 +174,7 @@ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-title.Text = "🔎 Bond Tracker (Dead Rails)"
+title.Text = "🔎 Bond Tracker (Dead Rails)" .. Version
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 16
