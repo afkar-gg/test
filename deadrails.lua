@@ -77,13 +77,6 @@ function sendTrack(callback)
 	end
 end
 
-	if success and response and response.StatusCode == 200 then
-		print("✅ /track called successfully.")
-	else
-		warn("❌ Failed to call /track", err or response.StatusCode)
-	end
-end
-
 local function sendToProxy()
   if savedUrl == "" then
     warn("[Bond Tracker] ❌ No Proxy URL Set")
