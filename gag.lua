@@ -188,7 +188,7 @@ execBtn.MouseButton1Click:Connect(function()
 				})
 			end)
 
-			task.wait(2)
+			task.wait(5)
 		end
 
 		if not kicked then
