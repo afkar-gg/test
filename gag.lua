@@ -130,51 +130,57 @@ end)
 -- Exec: track and loop check
 execBtn.MouseButton1Click:Connect(function()
     local proxy = urlBox.Text
-    if proxy == "" then status.Text = "❌ Missing URL"; return end
+    if proxy == "" then
+        status.Text = "❌ Missing URL"
+        return
+    end
 
     local checking = true
     local kicked = false
 
-    -- Detect kick or teleport fail
-    player.OnTeleport:Connect(function(state)
-        if state == Enum.TeleportState.Failed or state == Enum.TeleportState.Kicked then
+    -- Detect disconnection/kick by observing player removal
+    player.AncestryChanged:Connect(function(child, parent)
+        if not parent then
             kicked = true
             checking = false
-            warn("🔌 Player kicked or teleport failed. Stopping loop.")
+            warn("🔌 Player removed from game. Stopping /check loop.")
         end
     end)
 
-    -- Initial /track
+    -- Start session (/track)
     local ok, response = pcall(function()
         return request({
-            Url = proxy.."/track",
+            Url = proxy .. "/track",
             Method = "POST",
-            Headers = {["Content-Type"]="application/json"},
+            Headers = { ["Content-Type"] = "application/json" },
             Body = HttpService:JSONEncode({ username = player.Name })
         })
     end)
-    if not ok or not response or response.StatusCode ~= 200 then
-        status.Text = "❌ /track failed ("..(response and response.StatusCode or "?")..")"
+
+    if not ok or response.StatusCode ~= 200 then
+        status.Text = "❌ /track failed (" .. (response and response.StatusCode or "?") .. ")"
         return
     end
 
     local data = HttpService:JSONDecode(response.Body)
     local endTime = tonumber(data.endTime)
-    if not endTime then status.Text = "❌ No endTime received"; return end
+    if not endTime then
+        status.Text = "❌ No endTime received"
+        return
+    end
 
     status.Text = "✅ Session started"
 
-    -- Loop heartbeats
     task.spawn(function()
-        while checking and os.time() < math.floor(endTime/1000) do
-            local left = math.floor(endTime/1000) - os.time()
-            status.Text = string.format("⏳ %02d:%02d left", left//60, left%60)
+        while checking and os.time() < math.floor(endTime / 1000) do
+            local left = math.floor(endTime / 1000) - os.time()
+            status.Text = string.format("⏳ %02d:%02d left", left // 60, left % 60)
 
             pcall(function()
                 request({
-                    Url = proxy.."/check",
+                    Url = proxy .. "/check",
                     Method = "POST",
-                    Headers = {["Content-Type"]="application/json"},
+                    Headers = { ["Content-Type"] = "application/json" },
                     Body = HttpService:JSONEncode({ username = player.Name })
                 })
             end)
@@ -183,16 +189,18 @@ execBtn.MouseButton1Click:Connect(function()
         end
 
         if not kicked then
-            -- complete the session
+            -- Session complete
             pcall(function()
                 request({
-                    Url = proxy.."/complete",
+                    Url = proxy .. "/complete",
                     Method = "POST",
-                    Headers = {["Content-Type"]="application/json"},
+                    Headers = { ["Content-Type"] = "application/json" },
                     Body = HttpService:JSONEncode({ username = player.Name })
                 })
             end)
             status.Text = "✅ Joki completed"
+        else
+            status.Text = "🛑 Session paused (disconnected)"
         end
     end)
 end)
