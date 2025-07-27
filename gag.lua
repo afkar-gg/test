@@ -142,7 +142,7 @@ execBtn.MouseButton1Click:Connect(function()
 	local kicked = false
 
 	player.OnTeleport:Connect(function(state)
-		if state == Enum.TeleportState.Failed or state == Enum.TeleportState.Kicked then
+		if state == Enum.TeleportState.Kicked then
 			kicked = true
 			checking = false
 			warn("🔌 Player kicked or teleport failed. Stopping /check loop.")
