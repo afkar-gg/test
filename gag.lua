@@ -4,6 +4,7 @@ local HttpService   = game:GetService("HttpService")
 local Players       = game:GetService("Players")
 local CoreGui       = game:GetService("CoreGui")
 local player        = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
 
 local request = http_request or (syn and syn.request) or request
 if not request then
@@ -45,7 +46,7 @@ local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1,-30,0,30)
 title.Position = UDim2.new(0,10,0,0)
 title.BackgroundTransparency = 1
-title.Text = "Roblox Joki Panel (GAG) v2.1.0"
+title.Text = "Roblox Joki Panel (GAG) v2.2.0"
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 16
 title.TextColor3 = Color3.new(1,1,1)
@@ -137,14 +138,26 @@ execBtn.MouseButton1Click:Connect(function()
 
     local checking = true
     local kicked = false
+    local kickReason = "unknown"
 
-    -- Detect disconnection/kick by observing player removal
-    player.AncestryChanged:Connect(function(child, parent)
+    -- Detect player removal from game
+    player.AncestryChanged:Connect(function(_, parent)
         if not parent then
             kicked = true
             checking = false
-            warn("🔌 Player removed from game. Stopping /check loop.")
+            kickReason = "Disconnected (removed from data model)"
+            warn("🔌 Disconnected from game. Reason: " .. tostring(kickReason))
         end
+    end)
+
+    -- Optional: teleport failure
+    pcall(function()
+        TeleportService.TeleportInitFailed:Connect(function(_, errMsg)
+            kicked = true
+            checking = false
+            kickReason = "Teleport failed: " .. errMsg
+            warn("🔌 Teleport failed. Reason: " .. tostring(errMsg))
+        end)
     end)
 
     -- Start session (/track)
@@ -156,7 +169,6 @@ execBtn.MouseButton1Click:Connect(function()
             Body = HttpService:JSONEncode({ username = player.Name })
         })
     end)
-
     if not ok or response.StatusCode ~= 200 then
         status.Text = "❌ /track failed (" .. (response and response.StatusCode or "?") .. ")"
         return
@@ -188,8 +200,24 @@ execBtn.MouseButton1Click:Connect(function()
             task.wait(5)
         end
 
-        if not kicked then
-            -- Session complete
+        if kicked then
+            status.Text = "🛑 Disconnected – notifying..."
+            pcall(function()
+                request({
+                    Url = proxy .. "/disconnected",
+                    Method = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                    Body = HttpService:JSONEncode({
+                        username = player.Name,
+                        reason = kickReason,
+                        placeId = tostring(game.PlaceId)
+                    })
+                })
+            end)
+            task.wait(1)
+            game:Shutdown()
+        else
+            -- Session completed naturally
             pcall(function()
                 request({
                     Url = proxy .. "/complete",
@@ -199,8 +227,6 @@ execBtn.MouseButton1Click:Connect(function()
                 })
             end)
             status.Text = "✅ Joki completed"
-        else
-            status.Text = "🛑 Session paused (disconnected)"
         end
     end)
 end)
