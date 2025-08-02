@@ -21,7 +21,12 @@ if canSave and not isfolder(folder) then pcall(makefolder, folder) end
 local savedUrl = ""
 if canSave and isfile(file) then
     local ok, result = pcall(readfile, file)
-    if ok then local data = HttpService:JSONDecode(result); savedUrl = data.proxy_url or "" end
+    if ok and result then
+        local success, data = pcall(function() return HttpService:JSONDecode(result) end)
+        if success and data and typeof(data) == "table" then
+            savedUrl = data.proxy_url or ""
+        end
+    end
 end
 
 -- UI Setup
@@ -32,7 +37,6 @@ frame.Position = UDim2.new(0.5,-180,0.5,-120)
 frame.BackgroundColor3 = Color3.fromRGB(35,35,45); frame.Active, frame.Draggable = true,true
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0,8)
 
--- Title, URL, status label
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1,-30,0,30); title.Position = UDim2.new(0,10,0,0)
 title.BackgroundTransparency = 1; title.Text = "Roblox Joki Panel (GAG) v2.3.0"
@@ -121,24 +125,32 @@ uploadBtn.MouseButton1Click:Connect(function()
     status.Text = ok3 and "✅ GAG uploaded" or "❌ Upload failed"
 end)
 
--- Exec button (track/check logic unchanged)
 execBtn.MouseButton1Click:Connect(function()
     local proxy = urlBox.Text
     if proxy == "" then status.Text = "❌ Missing URL"; return end
 
-    local checking, kicked = true, false; local kickReason = "unknown"
-    player.AncestryChanged:Connect(function(_,parent)
-        if not parent then kicked=true; checking=false; kickReason="Disconnected" end
-    end)
-    pcall(function())
-    TeleportService.TeleportInitFailed:Connect(function(_,msg)
-        kicked=true; checking=false; kickReason="Teleport failed:"..msg end)
+    local checking, kicked = true, false
+    local kickReason = "unknown"
+
+    player.AncestryChanged:Connect(function(_, parent)
+        if not parent then kicked = true; checking = false; kickReason = "Disconnected" end
     end)
 
-    local ok,res = pcall(function()
-        return request({Url = proxy.."/track", Method="POST", Headers={["Content-Type"]="application/json"}, Body=HttpService:JSONEncode({username=player.Name})})
+    pcall(function()
+        TeleportService.TeleportInitFailed:Connect(function(_, msg)
+            kicked = true; checking = false; kickReason = "Teleport failed: " .. msg
+        end)
     end)
-    if not ok or not res or res.StatusCode~=200 then status.Text = "❌ /track failed"; return end
+
+    local ok, res = pcall(function()
+        return request({
+            Url = proxy.."/track",
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = HttpService:JSONEncode({ username = player.Name })
+        })
+    end)
+    if not ok or not res or res.StatusCode ~= 200 then status.Text = "❌ /track failed"; return end
 
     local data = HttpService:JSONDecode(res.Body)
     local endTime = tonumber(data.endTime)
@@ -146,25 +158,43 @@ execBtn.MouseButton1Click:Connect(function()
 
     status.Text = "✅ Session started"
     task.spawn(function()
-        while checking and os.time()<math.floor(endTime/1000) do
-            status.Text = string.format("⏳ %02d:%02d left", (math.floor(endTime/1000)-os.time())//60, (math.floor(endTime/1000)-os.time())%60)
+        while checking and os.time() < math.floor(endTime / 1000) do
+            local left = math.floor(endTime / 1000) - os.time()
+            status.Text = string.format("⏳ %02d:%02d left", left // 60, left % 60)
             pcall(function()
-                request({Url=proxy.."/check", Method="POST",Headers={["Content-Type"]="application/json"},Body=HttpService:JSONEncode({username=player.Name})})
+                request({
+                    Url = proxy.."/check",
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode({ username = player.Name })
+                })
             end)
             task.wait(5)
         end
         if kicked then
             status.Text = "🛑 Disconnected – notifying..."
             pcall(function()
-                request({Url=proxy.."/disconnected", Method="POST", Headers={["Content-Type"]="application/json"},
-                    Body=HttpService:JSONEncode({username=player.Name, reason=kickReason, placeId=tostring(game.PlaceId)})})
+                request({
+                    Url = proxy.."/disconnected",
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode({
+                        username = player.Name,
+                        reason = kickReason,
+                        placeId = tostring(game.PlaceId)
+                    })
+                })
             end)
             task.wait(1)
             game:Shutdown()
         else
             pcall(function()
-                request({Url=proxy.."/complete", Method="POST", Headers={["Content-Type"]="application/json"},
-                    Body=HttpService:JSONEncode({ username=player.Name })})
+                request({
+                    Url = proxy.."/complete",
+                    Method = "POST",
+                    Headers = {["Content-Type"] = "application/json"},
+                    Body = HttpService:JSONEncode({ username = player.Name })
+                })
             end)
             status.Text = "✅ Joki completed"
         end
