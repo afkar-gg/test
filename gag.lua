@@ -35,7 +35,7 @@ Instance.new("UICorner", frame).CornerRadius = UDim.new(0,8)
 -- Title, URL, status label
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1,-30,0,30); title.Position = UDim2.new(0,10,0,0)
-title.BackgroundTransparency = 1; title.Text = "Roblox Joki Panel (GAG) v2.2.2"
+title.BackgroundTransparency = 1; title.Text = "Roblox Joki Panel (GAG) v2.3.0"
 title.Font = Enum.Font.SourceSansBold; title.TextSize = 16; title.TextColor3 = Color3.new(1,1,1)
 title.TextXAlignment = Enum.TextXAlignment.Left
 
