@@ -111,17 +111,46 @@ end)
 
 uploadBtn.MouseButton1Click:Connect(function()
     local proxy = urlBox.Text
-    if proxy == "" then status.Text = "❌ URL missing"; return end
+    if proxy == "" then
+        status.Text = "❌ URL missing"
+        return
+    end
+
+    -- ✅ FIX: Use correct path directly (NOT inside joki_config)
     local path = "SpeedHubX/Grow A Garden.json"
-    if not isfile(path) then status.Text = "❌ GAG file missing"; return end
-    local ok,content = pcall(readfile, path)
-    if not ok then status.Text = "❌ Read failed"; return end
-    local ok2,decoded = pcall(HttpService.JSONDecode, HttpService, content)
-    if not ok2 then status.Text = "❌ JSON invalid"; return end
-    local payload = HttpService:JSONEncode({ username = player.Name, data = decoded })
-    local ok3 = pcall(function()
-        request({Url = proxy.."/upload-gag-data", Method="POST", Headers={["Content-Type"]="application/json"}, Body=payload})
+    if not isfile(path) then
+        status.Text = "❌ File not found: " .. path
+        return
+    end
+
+    local ok, content = pcall(readfile, path)
+    if not ok or not content then
+        status.Text = "❌ Read failed"
+        return
+    end
+
+    local ok2, decoded = pcall(function()
+        return HttpService:JSONDecode(content)
     end)
+    if not ok2 then
+        status.Text = "❌ JSON invalid"
+        return
+    end
+
+    local payload = HttpService:JSONEncode({
+        username = player.Name,
+        data = decoded
+    })
+
+    local ok3 = pcall(function()
+        request({
+            Url = proxy .. "/upload-gag-data",
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = payload
+        })
+    end)
+
     status.Text = ok3 and "✅ GAG uploaded" or "❌ Upload failed"
 end)
 
