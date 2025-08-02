@@ -21,12 +21,7 @@ if canSave and not isfolder(folder) then pcall(makefolder, folder) end
 local savedUrl = ""
 if canSave and isfile(file) then
     local ok, result = pcall(readfile, file)
-    if ok and result then
-        local success, data = pcall(function() return HttpService:JSONDecode(result) end)
-        if success and data and typeof(data) == "table" then
-            savedUrl = data.proxy_url or ""
-        end
-    end
+    if ok then local data = HttpService:JSONDecode(result); savedUrl = data.proxy_url or "" end
 end
 
 -- UI Setup
@@ -37,12 +32,21 @@ frame.Position = UDim2.new(0.5,-180,0.5,-120)
 frame.BackgroundColor3 = Color3.fromRGB(35,35,45); frame.Active, frame.Draggable = true,true
 Instance.new("UICorner", frame).CornerRadius = UDim.new(0,8)
 
+-- Title & Close
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1,-30,0,30); title.Position = UDim2.new(0,10,0,0)
 title.BackgroundTransparency = 1; title.Text = "Roblox Joki Panel (GAG) v2.3.0"
 title.Font = Enum.Font.SourceSansBold; title.TextSize = 16; title.TextColor3 = Color3.new(1,1,1)
 title.TextXAlignment = Enum.TextXAlignment.Left
 
+local close = Instance.new("TextButton", frame)
+close.Size = UDim2.new(0,24,0,24); close.Position = UDim2.new(1,-28,0,3)
+close.Text = "X"; close.Font = Enum.Font.SourceSansBold; close.TextColor3 = Color3.new(1,1,1); close.TextSize = 14
+close.BackgroundColor3 = Color3.fromRGB(200,50,50)
+Instance.new("UICorner", close).CornerRadius = UDim.new(0,6)
+close.MouseButton1Click:Connect(function() gui:Destroy() end)
+
+-- URL & Status
 local urlBox = Instance.new("TextBox", frame)
 urlBox.Size = UDim2.new(0.9,0,0,30); urlBox.Position = UDim2.new(0.05,0,0,40)
 urlBox.PlaceholderText = "Paste Proxy URL (https://...)"; urlBox.Text = savedUrl
@@ -75,7 +79,7 @@ uploadBtn.Text = "📤 Upload GAG Data"; uploadBtn.Font = Enum.Font.SourceSansBo
 uploadBtn.TextColor3 = Color3.new(1,1,1); uploadBtn.BackgroundColor3 = Color3.fromRGB(34,197,94)
 Instance.new("UICorner", uploadBtn).CornerRadius = UDim.new(0,6)
 
--- Auto-download GAG data if exists on server
+-- Auto-download GAG data
 do
     if savedUrl ~= "" then
         local ok,res = pcall(function()
@@ -84,7 +88,7 @@ do
         if ok and res and res.StatusCode == 200 then
             if canSave then
                 if not isfolder("SpeedHubX") then makefolder("SpeedHubX") end
-                writefile("SpeedHubX/Grow A Garden.json", res.Body)
+                writefile("SpeedHubX/Grow a Garden.json", res.Body)
             end
             status.Text = "✅ GAG data downloaded"
         else
@@ -93,7 +97,7 @@ do
     end
 end
 
--- Button logic
+-- Send Job ID
 jobBtn.MouseButton1Click:Connect(function()
     local proxy = urlBox.Text
     if proxy == "" then status.Text = "❌ URL missing"; return end
@@ -109,78 +113,47 @@ jobBtn.MouseButton1Click:Connect(function()
     status.Text = ok and "✅ Job ID sent!" or "❌ Send failed"
 end)
 
+-- Upload GAG Data
 uploadBtn.MouseButton1Click:Connect(function()
-  local proxy = urlBox.Text
-  if proxy == "" then status.Text = "❌ URL missing"; return end
-
-  local path = "SpeedHubX/Grow A Garden.json"
-  status.Text = "🔍 Checking file path..."
-
-  if not isfile(path) then
-    status.Text = "❌ File not found: " .. path
-    return
-  else
-    status.Text = "✅ File exists: " .. path
-  end
-
-  local ok, content = pcall(readfile, path)
-  if not ok or not content or #content == 0 then
-    status.Text = "❌ Failed to read file"
-    return
-  else
-    status.Text = "✅ File read, bytes: " .. #content
-  end
-
-  local ok2, decoded = pcall(function()
-    return HttpService:JSONDecode(content)
-  end)
-  if not ok2 then
-    status.Text = "❌ Invalid JSON"
-    return
-  else
-    status.Text = "✅ JSON parsed"
-  end
-
-  local payload = HttpService:JSONEncode({ username = player.Name, data = decoded })
-
-  local ok3 = pcall(function()
-    request({
-      Url = proxy .. "/upload-gag-data",
-      Method = "POST",
-      Headers = { ["Content-Type"] = "application/json" },
-      Body = payload
-    })
-  end)
-  
-  status.Text = ok3 and "✅ GAG uploaded" or "❌ Upload request failed"
+    local proxy = urlBox.Text
+    if proxy == "" then status.Text = "❌ URL missing"; return end
+    local path = "SpeedHubX/Grow a Garden.json"
+    if not isfile(path) then status.Text = "❌ GAG file missing"; return end
+    local ok,content = pcall(readfile, path)
+    if not ok then status.Text = "❌ Read failed"; return end
+    local ok2,decoded = pcall(HttpService.JSONDecode, HttpService, content)
+    if not ok2 then status.Text = "❌ JSON invalid"; return end
+    local payload = HttpService:JSONEncode({ username = player.Name, data = decoded })
+    local ok3 = pcall(function()
+        request({Url = proxy.."/upload-gag-data", Method="POST", Headers={["Content-Type"]="application/json"}, Body=payload})
+    end)
+    status.Text = ok3 and "✅ GAG uploaded" or "❌ Upload failed"
 end)
 
+-- Exec logic
 execBtn.MouseButton1Click:Connect(function()
     local proxy = urlBox.Text
     if proxy == "" then status.Text = "❌ Missing URL"; return end
 
-    local checking, kicked = true, false
-    local kickReason = "unknown"
-
-    player.AncestryChanged:Connect(function(_, parent)
-        if not parent then kicked = true; checking = false; kickReason = "Disconnected" end
+    local checking, kicked = true, false; local kickReason = "unknown"
+    player.AncestryChanged:Connect(function(_,parent)
+        if not parent then kicked=true; checking=false; kickReason="Disconnected" end
     end)
-
     pcall(function()
-        TeleportService.TeleportInitFailed:Connect(function(_, msg)
-            kicked = true; checking = false; kickReason = "Teleport failed: " .. msg
+        TeleportService.TeleportInitFailed:Connect(function(_,msg)
+            kicked=true; checking=false; kickReason="Teleport failed:"..msg
         end)
     end)
 
-    local ok, res = pcall(function()
+    local ok,res = pcall(function()
         return request({
             Url = proxy.."/track",
             Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
+            Headers = { ["Content-Type"] = "application/json" },
             Body = HttpService:JSONEncode({ username = player.Name })
         })
     end)
-    if not ok or not res or res.StatusCode ~= 200 then status.Text = "❌ /track failed"; return end
+    if not ok or not res or res.StatusCode~=200 then status.Text = "❌ /track failed"; return end
 
     local data = HttpService:JSONDecode(res.Body)
     local endTime = tonumber(data.endTime)
@@ -195,19 +168,20 @@ execBtn.MouseButton1Click:Connect(function()
                 request({
                     Url = proxy.."/check",
                     Method = "POST",
-                    Headers = {["Content-Type"] = "application/json"},
+                    Headers = { ["Content-Type"] = "application/json" },
                     Body = HttpService:JSONEncode({ username = player.Name })
                 })
             end)
             task.wait(5)
         end
+
         if kicked then
             status.Text = "🛑 Disconnected – notifying..."
             pcall(function()
                 request({
                     Url = proxy.."/disconnected",
                     Method = "POST",
-                    Headers = {["Content-Type"] = "application/json"},
+                    Headers = { ["Content-Type"] = "application/json" },
                     Body = HttpService:JSONEncode({
                         username = player.Name,
                         reason = kickReason,
@@ -222,7 +196,7 @@ execBtn.MouseButton1Click:Connect(function()
                 request({
                     Url = proxy.."/complete",
                     Method = "POST",
-                    Headers = {["Content-Type"] = "application/json"},
+                    Headers = { ["Content-Type"] = "application/json" },
                     Body = HttpService:JSONEncode({ username = player.Name })
                 })
             end)
