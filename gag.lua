@@ -201,6 +201,8 @@ execBtn.MouseButton1Click:Connect(function()
                 })
             end)
             status.Text = "✅ Joki completed"
+            task.wait(1)
+            game:Shutdown()
         end
     end)
 end)
