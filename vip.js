@@ -5,18 +5,13 @@
 // @author        bypass.vip
 // @description   Bypass ad-links using the bypass.vip API and get to your destination without ads!
 // @match         *://mega-guy.com/*
-// @match         *://loot-link.com/*
-// @match         *://best-links.org/*
-// @match         *://loot-links.com/*
 // @match         *://megaspremium.com/*
-// @match         *://lootdest.com/*
 // @match         *://direct-links.net/*
 // @match         *://risquemega.com/*
 // @match         *://onlyfriends.club/*
 // @match         *://onepiecered.co/*
 // @match         *://multileaks.com/*
 // @match         *://luvsquad-links.com/*
-// @match         *://lootdest.org/*
 // @match         *://free-leaks.com/*
 // @match         *://goldmega.online/*
 // @match         *://realiukzemydre.com/*
@@ -73,7 +68,6 @@
 // @match         *://onlyfanscloud.com/*
 // @match         *://missleakz.com/*
 // @match         *://leakszone.online/*
-// @match         *://links-loot.com/*
 // @match         *://holyfanslinks.com/*
 // @match         *://utopianleaks.com/*
 // @match         *://megavip.store/*
@@ -81,7 +75,6 @@
 // @match         *://baddiesheaven.com/*
 // @match         *://of4lm-links.com/*
 // @match         *://holedonly.store/*
-// @match         *://lootlinks.com/*
 // @match         *://free-content.pro/*
 // @match         *://milky-center.com/*
 // @match         *://megaofs.com/*
@@ -98,7 +91,6 @@
 // @match         *://link-hub.net/*
 // @match         *://locconnect.com/*
 // @match         *://premiumstashdrop.com/*
-// @match         *://lootdest.info/*
 // @match         *://of-area.com/*
 // @match         *://link-target.net/*
 // @match         *://megalnk.com/*
