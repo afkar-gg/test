@@ -120,6 +120,8 @@ if game.PlaceId == GAME_PLACE_ID then
             task.wait(1) -- Sends update every 1 seconds
             currentBond = parseBond(bondPath.Text)
             sendToProxy()
+            task.wait(240)
+            player.Character:BreakJoints()
         end
     end)
 end
@@ -259,6 +261,3 @@ task.spawn(function()
 		diffLabel.Text = "📈 Gained: " .. (currentBond - savedBond)
 	end
 end)
-
-task.wait(240)
-player.Character:BreakJoints()
