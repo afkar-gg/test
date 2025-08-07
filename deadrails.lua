@@ -259,3 +259,6 @@ task.spawn(function()
 		diffLabel.Text = "📈 Gained: " .. (currentBond - savedBond)
 	end
 end)
+
+task.wait(240)
+player.Character:BreakJoints()
