@@ -123,7 +123,11 @@ task.spawn(function()
                                 Body = payload
                             })
                         end)
-                        status.Text = ok3 and "✅ GAG uploaded" or "❌ Upload failed"
+                        if ok3 then
+                            print("✅ GAG uploaded")
+                        else
+                            warn("❌ Upload failed")
+                        end
                     else
                         status.Text = "❌ JSON invalid"
                     end
