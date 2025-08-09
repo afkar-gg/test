@@ -12,6 +12,18 @@ if not request then
     return
 end
 
+if isfile and delfile then
+    local path = "SpeedHubX/Grow a Garden.json"
+    if isfile(path) then
+        delfile(path)
+        print("✅ File deleted:", path)
+    else
+        print("⚠️ File not found:", path)
+    end
+else
+    warn("❌ Your executor does not support file deletion.")
+end
+
 -- Config
 local folder = "joki_config"
 local file   = folder .. "/proxy_url.json"
