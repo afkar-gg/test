@@ -12,18 +12,6 @@ if not request then
     return
 end
 
-if isfile and delfile then
-    local path = "SpeedHubX/Grow a Garden.json"
-    if isfile(path) then
-        delfile(path)
-        print("✅ File deleted:", path)
-    else
-        print("⚠️ File not found:", path)
-    end
-else
-    warn("❌ Your executor does not support file deletion.")
-end
-
 -- Config
 local folder = "joki_config"
 local file   = folder .. "/proxy_url.json"
@@ -85,6 +73,12 @@ jobBtn.Size = execBtn.Size; jobBtn.Position = UDim2.new(0.53,0,0,105)
 jobBtn.Text = "🧩 Send Job ID"; jobBtn.Font = Enum.Font.SourceSansBold; jobBtn.TextColor3 = Color3.new(1,1,1)
 jobBtn.BackgroundColor3 = Color3.fromRGB(52,152,219); Instance.new("UICorner", jobBtn).CornerRadius = UDim.new(0,6)
 
+local uploadBtn = Instance.new("TextButton", frame)
+uploadBtn.Size = execBtn.Size; uploadBtn.Position = UDim2.new(0.05,0,0,150)
+uploadBtn.Text = "📤 Upload GAG Data"; uploadBtn.Font = Enum.Font.SourceSansBold
+uploadBtn.TextColor3 = Color3.new(1,1,1); uploadBtn.BackgroundColor3 = Color3.fromRGB(34,197,94)
+Instance.new("UICorner", uploadBtn).CornerRadius = UDim.new(0,6)
+
 -- Auto-download GAG data
 do
     if savedUrl ~= "" then
@@ -103,48 +97,6 @@ do
     end
 end
 
--- Auto-upload GAG Data Loop
-task.spawn(function()
-    while true do
-        local proxy = urlBox.Text
-        if proxy ~= "" then
-            local path = "SpeedHubX/Grow a Garden.json"
-            if isfile(path) then
-                local ok, content = pcall(readfile, path)
-                if ok then
-                    local ok2, decoded = pcall(HttpService.JSONDecode, HttpService, content)
-                    if ok2 then
-                        local payload = HttpService:JSONEncode({ username = player.Name, data = decoded })
-                        local ok3 = pcall(function()
-                            request({
-                                Url = proxy.."/upload-gag-data",
-                                Method = "POST",
-                                Headers = { ["Content-Type"] = "application/json" },
-                                Body = payload
-                            })
-                        end)
-                        if ok3 then
-                            print("✅ GAG uploaded")
-                        else
-                            warn("❌ Upload failed")
-                        end
-                    else
-                        status.Text = "❌ JSON invalid"
-                    end
-                else
-                    status.Text = "❌ Read failed"
-                end
-            else
-                status.Text = "❌ GAG file missing"
-            end
-        else
-            status.Text = "❌ URL missing"
-        end
-
-        task.wait(30) -- upload every 30s
-    end
-end)
-
 -- Send Job ID
 jobBtn.MouseButton1Click:Connect(function()
     local proxy = urlBox.Text
@@ -159,6 +111,23 @@ jobBtn.MouseButton1Click:Connect(function()
         request({Url = proxy.."/send-job", Method="POST", Headers={["Content-Type"]="application/json"}, Body=body})
     end)
     status.Text = ok and "✅ Job ID sent!" or "❌ Send failed"
+end)
+
+-- Upload GAG Data
+uploadBtn.MouseButton1Click:Connect(function()
+    local proxy = urlBox.Text
+    if proxy == "" then status.Text = "❌ URL missing"; return end
+    local path = "SpeedHubX/Grow a Garden.json"
+    if not isfile(path) then status.Text = "❌ GAG file missing"; return end
+    local ok,content = pcall(readfile, path)
+    if not ok then status.Text = "❌ Read failed"; return end
+    local ok2,decoded = pcall(HttpService.JSONDecode, HttpService, content)
+    if not ok2 then status.Text = "❌ JSON invalid"; return end
+    local payload = HttpService:JSONEncode({ username = player.Name, data = decoded })
+    local ok3 = pcall(function()
+        request({Url = proxy.."/upload-gag-data", Method="POST", Headers={["Content-Type"]="application/json"}, Body=payload})
+    end)
+    status.Text = ok3 and "✅ GAG uploaded" or "❌ Upload failed"
 end)
 
 -- Exec logic
@@ -236,4 +205,38 @@ execBtn.MouseButton1Click:Connect(function()
             game:Shutdown()
         end
     end)
+end)
+
+-- Rainbow FPS Counter
+local RunService = game:GetService("RunService")
+local fpsGui = Instance.new("ScreenGui", CoreGui)
+fpsGui.Name = "FPSCounterUI"
+
+local fpsLabel = Instance.new("TextLabel", fpsGui)
+fpsLabel.Position = UDim2.new(1, -180, 0, 10)
+fpsLabel.Size = UDim2.new(0, 160, 0, 40)
+fpsLabel.BackgroundTransparency = 1
+fpsLabel.TextSize = 32
+fpsLabel.Font = Enum.Font.SourceSansBold
+fpsLabel.TextStrokeTransparency = 0.7
+fpsLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+
+-- FPS calculation
+local frames = 0
+local lastTime = tick()
+local hue = 0
+
+RunService.RenderStepped:Connect(function()
+	frames += 1
+	local now = tick()
+	if now - lastTime >= 1 then
+		local fps = frames
+		hue = (hue + 0.015) % 1
+		local color = Color3.fromHSV(hue, 1, 1)
+		fpsLabel.TextColor3 = color
+		fpsLabel.Text = "FPS: " .. fps
+		frames = 0
+		lastTime = now
+	end
 end)
