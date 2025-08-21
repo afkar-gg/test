@@ -1,4 +1,5 @@
 if not game:IsLoaded() then game.Loaded:Wait() end
+local CoreGui = game:GetService("CoreGui")
 -- Rainbow FPS Counter
 local RunService = game:GetService("RunService")
 local fpsGui = Instance.new("ScreenGui", CoreGui)
