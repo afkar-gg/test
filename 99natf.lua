@@ -1,4 +1,4 @@
--- Diamond Tracker (executor) for "Diamonds" type
+-- Diamond Tracker (executor) - updated UI logs + explicit GUI path
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local HttpService = game:GetService("HttpService")
@@ -8,7 +8,7 @@ local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local username = player.Name
 
--- === Place IDs (keep as-is or replace with your game's IDs) ===
+-- === Place IDs ===
 local LOBBY_PLACE_ID = 116495829188952
 local GAME_PLACE_ID = 70876832253163
 
@@ -20,57 +20,24 @@ local SAVE_FILE = CONFIG_FOLDER .. "/diamond_data.json"
 local canSave = isfile and writefile and readfile and makefolder
 if canSave and not isfolder(CONFIG_FOLDER) then pcall(makefolder, CONFIG_FOLDER) end
 
--- === Diamond GUI lookup (tries multiple fallbacks) ===
+-- === Explicit Diamond GUI path as requested ===
 local success, diamondPath = pcall(function()
 	local pg = player:WaitForChild("PlayerGui")
-
-	-- Explicit known path first
-	if pg:FindFirstChild("DiamondDisplay") then
-		local dd = pg:WaitForChild("DiamondDisplay")
-		if dd:FindFirstChild("DiamondInfo") and dd.DiamondInfo:FindFirstChild("DiamondCount") then
-			return dd.DiamondInfo.DiamondCount
-		end
-	end
-
-	-- Fallback to BondDisplay for reuse in games that still use the same UI
-	if pg:FindFirstChild("BondDisplay") then
-		local bd = pg:WaitForChild("BondDisplay")
-		if bd:FindFirstChild("BondInfo") and bd.BondInfo:FindFirstChild("BondCount") then
-			return bd.BondInfo.BondCount
-		end
-	end
-
-	-- Generic search: first TextLabel/TextBox with name hint
-	for _, obj in ipairs(pg:GetDescendants()) do
-		if (obj:IsA("TextLabel") or obj:IsA("TextBox")) then
-			local n = obj.Name:lower()
-			if n:find("diamond") or n:find("diamondcount") or n:find("count") or n:find("gem") then
-				return obj
-			end
-		end
-	end
-
-	-- Last resort: any numeric-looking TextLabel near top-level UI
-	for _, obj in ipairs(pg:GetDescendants()) do
-		if (obj:IsA("TextLabel") or obj:IsA("TextBox")) and tostring(obj.Text):match("%d") then
-			return obj
-		end
-	end
-
-	return nil
+	return pg:WaitForChild("Interface"):WaitForChild("DiamondCount"):WaitForChild("Count")
 end)
-
 if not success or not diamondPath then
-	warn("[Diamond Tracker] ❌ GUI path not found. Update lookup if UI names differ.")
+	warn("[Diamond Tracker] ❌ Cannot find Interface.DiamondCount.Count. Update path if necessary.")
 	return
 end
 
-local function parseNumber(str)
-	local clean = tostring(str or ""):gsub(",", ""):match("%d+")
-	return tonumber(clean) or 0
+local function parseNumberFromText(t)
+	local s = tostring(t or "")
+	-- allow numbers with commas and decimals, take first match
+	local num = s:gsub(",", ""):match("%d+")
+	return tonumber(num) or 0
 end
 
--- === Load Config
+-- === Load Config ===
 local savedDiamond, savedUrl = 0, ""
 if canSave and isfile(SAVE_FILE) then
 	local ok, result = pcall(function()
@@ -82,9 +49,7 @@ if canSave and isfile(SAVE_FILE) then
 	end
 end
 
-local currentDiamond = parseNumber(diamondPath.Text)
-
--- === Safe HTTP Request detection
+-- === Safe HTTP Request detection ===
 local httpRequest = request or http_request or (syn and syn.request) or (http and http.request)
 if not httpRequest then
 	warn("[Diamond Tracker] ❌ HTTP request function not found in executor.")
@@ -93,6 +58,7 @@ end
 
 -- send /track to notify server we joined (keeps session alive)
 local function sendTrack(callback)
+	if savedUrl == "" then return end
 	local ok, res = pcall(function()
 		return httpRequest({
 			Url = savedUrl .. "/track",
@@ -101,30 +67,31 @@ local function sendTrack(callback)
 			Body = HttpService:JSONEncode({ username = username })
 		})
 	end)
-
 	if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
-		print("[Diamond Tracker] ✅ /track success")
+		updateLog("✅ /track success")
 		if callback then task.delay(0.5, callback) end
 	else
-		warn("[Diamond Tracker] ❌ /track failed")
+		updateLog("⚠️ /track failed")
 	end
 end
 
+-- placeholder for UI log updater (defined after UI creation)
+local function updateLog(_) end
+
 local function sendToProxy()
 	if savedUrl == "" then
-		warn("[Diamond Tracker] ❌ No Proxy URL Set")
+		updateLog("❌ No Proxy URL set")
 		return
 	end
 
-	currentDiamond = parseNumber(diamondPath.Text)
-	print("[Diamond Tracker] ⏱ Sending diamonds:", currentDiamond)
-
-	local body = {
+	local currentDiamond = parseNumberFromText(diamondPath.Text)
+	local payloadObj = {
 		username = username,
 		diamonds = currentDiamond,
 		placeId = tostring(game.PlaceId)
 	}
-	local payload = HttpService:JSONEncode(body)
+	local payload = HttpService:JSONEncode(payloadObj)
+	updateLog("⏱ Sending: " .. tostring(currentDiamond))
 
 	local ok, res = pcall(function()
 		return httpRequest({
@@ -136,56 +103,19 @@ local function sendToProxy()
 	end)
 
 	if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
-		print("[Diamond Tracker] ✅ Sent to Proxy:", payload)
+		updateLog("✅ Sent: " .. tostring(currentDiamond))
 	else
-		warn("[Diamond Tracker] ❌ Failed to send:", res and res.StatusCode or "error")
-		-- Retry once after 5 seconds
+		updateLog("❌ Send failed: " .. tostring(res and res.StatusCode or "error"))
+		-- retry once after 5s
 		task.delay(5, sendToProxy)
 	end
 end
 
--- Initial send after small delay to allow UI to initialize
+-- Initial send shortly after load
 task.delay(1.5, sendToProxy)
 
--- If in-game place, run periodic updates
-if game.PlaceId == GAME_PLACE_ID then
-	task.spawn(function()
-		while true do
-			task.wait(1) -- small tick
-			currentDiamond = parseNumber(diamondPath.Text)
-			sendToProxy()
-			task.wait(240) -- 4 minutes between heavy cycles (keeps heartbeat)
-			-- optional force respawn to avoid soft-locks in some executors
-			if player and player.Character then
-				pcall(function() player.Character:BreakJoints() end)
-			end
-		end
-	end)
-end
-
--- === Lobby timeout alert
-if game.PlaceId == LOBBY_PLACE_ID then
-	task.delay(60, function()
-		if savedUrl and savedUrl ~= "" then
-			local body = HttpService:JSONEncode({
-				username = username,
-				alert = "lobby_idle"
-			})
-			pcall(function()
-				httpRequest({
-					Url = savedUrl .. "/diamond",
-					Method = "POST",
-					Headers = { ["Content-Type"] = "application/json" },
-					Body = body
-				})
-			end)
-			print("[Diamond Tracker] ⚠️ Sent idle alert to proxy.")
-		end
-	end)
-end
-
--- === UI (simple control panel)
-pcall(function() CoreGui:FindFirstChild("DiamondTrackerUI"):Destroy() end)
+-- === Simple UI with logs under the two buttons ===
+pcall(function() local old = CoreGui:FindFirstChild("DiamondTrackerUI"); if old then old:Destroy() end end)
 
 local gui = Instance.new("ScreenGui", CoreGui)
 gui.Name = "DiamondTrackerUI"
@@ -193,8 +123,8 @@ gui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 gui.ResetOnSpawn = false
 
 local frame = Instance.new("Frame", gui)
-frame.Size = UDim2.new(0, 360, 0, 220)
-frame.Position = UDim2.new(0.5, -180, 0.5, -110)
+frame.Size = UDim2.new(0, 360, 0, 260)
+frame.Position = UDim2.new(0.5, -180, 0.5, -130)
 frame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
 frame.BorderColor3 = Color3.fromRGB(85, 85, 105)
 frame.BorderSizePixel = 2
@@ -204,29 +134,37 @@ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
+title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-title.Text = "🔎 Diamond Tracker (V1.0.0)"
+title.Text = "🔎 Diamond Tracker (V1.0.1)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 16
+title.BorderSizePixel = 0
+
+local currentDiamondNum = parseNumberFromText(diamondPath.Text)
 
 local diamondLabel = Instance.new("TextLabel", frame)
-diamondLabel.Position = UDim2.new(0, 0, 0, 36)
-diamondLabel.Size = UDim2.new(1, 0, 0, 20)
+diamondLabel.Position = UDim2.new(0, 8, 0, 36)
+diamondLabel.Size = UDim2.new(1, -16, 0, 20)
 diamondLabel.BackgroundTransparency = 1
 diamondLabel.TextColor3 = Color3.new(1, 1, 1)
-diamondLabel.Text = "💎 Current Diamonds: " .. currentDiamond
+diamondLabel.Text = "💎 Current Diamonds: " .. currentDiamondNum
 diamondLabel.Font = Enum.Font.SourceSans
 diamondLabel.TextSize = 16
+diamondLabel.TextXAlignment = Enum.TextXAlignment.Left
+diamondLabel.BorderSizePixel = 0
 
 local diffLabel = Instance.new("TextLabel", frame)
-diffLabel.Position = UDim2.new(0, 0, 0, 58)
-diffLabel.Size = UDim2.new(1, 0, 0, 20)
+diffLabel.Position = UDim2.new(0, 8, 0, 58)
+diffLabel.Size = UDim2.new(1, -16, 0, 20)
 diffLabel.BackgroundTransparency = 1
 diffLabel.TextColor3 = Color3.new(1, 1, 1)
-diffLabel.Text = "📈 Gained: " .. (currentDiamond - savedDiamond)
+diffLabel.Text = "📈 Gained: " .. (currentDiamondNum - savedDiamond)
 diffLabel.Font = Enum.Font.SourceSans
 diffLabel.TextSize = 16
+diffLabel.TextXAlignment = Enum.TextXAlignment.Left
+diffLabel.BorderSizePixel = 0
 
 -- Proxy URL input
 local urlBox = Instance.new("TextBox", frame)
@@ -260,6 +198,36 @@ resetBtn.TextColor3 = Color3.new(1, 1, 1)
 resetBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
 Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
 
+-- LOG LABEL placed directly below the two buttons
+local logLabel = Instance.new("TextLabel", frame)
+logLabel.Position = UDim2.new(0.05, 0, 0, 166)
+logLabel.Size = UDim2.new(0.9, 0, 0, 76)
+logLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 26)
+logLabel.BorderColor3 = Color3.fromRGB(60, 60, 70)
+logLabel.TextColor3 = Color3.new(1, 1, 1)
+logLabel.TextWrapped = true
+logLabel.TextYAlignment = Enum.TextYAlignment.Top
+logLabel.Text = "Logs:\n- ready"
+logLabel.Font = Enum.Font.SourceSans
+logLabel.TextSize = 14
+Instance.new("UICorner", logLabel).CornerRadius = UDim.new(0, 6)
+
+-- Implement updateLog now that UI element exists
+function updateLog(msg)
+	if not msg then return end
+	local time = os.date("%H:%M:%S")
+	local prev = tostring(logLabel.Text or "")
+	-- keep only last ~6 lines to avoid overflow
+	local lines = {}
+	for s in prev:gmatch("[^\n]+") do table.insert(lines, s) end
+	table.insert(lines, ("[%s] %s"):format(time, msg))
+	if #lines > 8 then
+		-- drop oldest, keep header "Logs:" if present
+		while #lines > 8 do table.remove(lines, 1) end
+	end
+	logLabel.Text = table.concat(lines, "\n")
+end
+
 -- Events
 urlBox:GetPropertyChangedSignal("Text"):Connect(function()
 	savedUrl = urlBox.Text
@@ -270,53 +238,57 @@ end)
 
 sendBtn.MouseButton1Click:Connect(function()
 	sendBtn.Text = "Sending..."
+	updateLog("initiating send")
 	sendTrack()
 	task.delay(0.2, function() sendToProxy() end)
 	task.delay(1.5, function() sendBtn.Text = "Send" end)
 end)
 
 resetBtn.MouseButton1Click:Connect(function()
-	savedDiamond = currentDiamond
+	savedDiamond = parseNumberFromText(diamondPath.Text)
 	if canSave then
 		pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedDiamond, proxy = savedUrl }))
 	end
+	updateLog("reset saved value to " .. tostring(savedDiamond))
 end)
 
 -- Live UI Update
 task.spawn(function()
 	while task.wait(1) do
-		currentDiamond = parseNumber(diamondPath.Text)
-		diamondLabel.Text = "💎 Current Diamonds: " .. currentDiamond
-		diffLabel.Text = "📈 Gained: " .. (currentDiamond - savedDiamond)
+		local cur = parseNumberFromText(diamondPath.Text)
+		diamondLabel.Text = "💎 Current Diamonds: " .. cur
+		diffLabel.Text = "📈 Gained: " .. (cur - savedDiamond)
 	end
 end)
 
 -- Simple FPS counter (optional)
-local fpsGui = Instance.new("ScreenGui", CoreGui)
-fpsGui.Name = "FPSCounterUI"
-local fpsLabel = Instance.new("TextLabel", fpsGui)
-fpsLabel.Position = UDim2.new(1, -180, 0, 10)
-fpsLabel.Size = UDim2.new(0, 160, 0, 40)
-fpsLabel.BackgroundTransparency = 1
-fpsLabel.TextSize = 32
-fpsLabel.Font = Enum.Font.SourceSansBold
-fpsLabel.TextStrokeTransparency = 0.7
-fpsLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+pcall(function()
+	local fpsGui = Instance.new("ScreenGui", CoreGui)
+	fpsGui.Name = "FPSCounterUI"
+	local fpsLabel = Instance.new("TextLabel", fpsGui)
+	fpsLabel.Position = UDim2.new(1, -180, 0, 10)
+	fpsLabel.Size = UDim2.new(0, 160, 0, 40)
+	fpsLabel.BackgroundTransparency = 1
+	fpsLabel.TextSize = 24
+	fpsLabel.Font = Enum.Font.SourceSansBold
+	fpsLabel.TextStrokeTransparency = 0.7
+	fpsLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+	fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
 
-local frames = 0
-local lastTime = tick()
-local hue = 0
-RunService.RenderStepped:Connect(function()
-	frames += 1
-	local now = tick()
-	if now - lastTime >= 1 then
-		local fps = frames
-		hue = (hue + 0.015) % 1
-		local color = Color3.fromHSV(hue, 1, 1)
-		fpsLabel.TextColor3 = color
-		fpsLabel.Text = "FPS: " .. fps
-		frames = 0
-		lastTime = now
-	end
+	local frames = 0
+	local lastTime = tick()
+	local hue = 0
+	RunService.RenderStepped:Connect(function()
+		frames += 1
+		local now = tick()
+		if now - lastTime >= 1 then
+			local fps = frames
+			hue = (hue + 0.015) % 1
+			local color = Color3.fromHSV(hue, 1, 1)
+			fpsLabel.TextColor3 = color
+			fpsLabel.Text = "FPS: " .. fps
+			frames = 0
+			lastTime = now
+		end
+	end)
 end)
