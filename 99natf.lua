@@ -252,6 +252,14 @@ task.spawn(function()
     end
 end)
 
+task.spawn(function()
+    while task.wait(30) do
+        sendTrack(function()
+            pcall(sendToProxy)
+        end)
+    end
+end)
+
 -- Simple FPS counter
 pcall(function()
 	local fpsGui = Instance.new("ScreenGui", CoreGui)
