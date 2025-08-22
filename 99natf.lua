@@ -7,6 +7,13 @@ local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local username = player.Name
+-- Teleport to another place by PlaceId
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- replace with your target placeId
+local TARGET_PLACE_ID = 126509999114328 
 
 -- === Place IDs ===
 local LOBBY_PLACE_ID = 79546208627805
@@ -253,11 +260,16 @@ task.spawn(function()
 end)
 
 task.spawn(function()
-    while task.wait(30) do
+    while task.wait(5) do
         sendTrack(function()
             pcall(sendToProxy)
         end)
     end
+end)
+
+task.wait(15)
+pcall(function()
+    TeleportService:Teleport(TARGET_PLACE_ID, LocalPlayer)
 end)
 
 -- Simple FPS counter
