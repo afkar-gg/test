@@ -267,7 +267,7 @@ task.spawn(function()
     end
 end)
 
-while task.wait(15) do
+while task.wait(120) do
     pcall(function()
         TeleportService:Teleport(TARGET_PLACE_ID, LocalPlayer)
     end)
