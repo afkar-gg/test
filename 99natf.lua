@@ -1,4 +1,4 @@
--- Diamond Tracker (executor) - updated UI logs + explicit GUI path
+-- Diamond Tracker (executor) for /diamond endpoint
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local HttpService = game:GetService("HttpService")
@@ -20,101 +20,100 @@ local SAVE_FILE = CONFIG_FOLDER .. "/diamond_data.json"
 local canSave = isfile and writefile and readfile and makefolder
 if canSave and not isfolder(CONFIG_FOLDER) then pcall(makefolder, CONFIG_FOLDER) end
 
--- === Explicit Diamond GUI path as requested ===
+-- === Explicit Diamond GUI path
 local success, diamondPath = pcall(function()
-	local pg = player:WaitForChild("PlayerGui")
-	return pg:WaitForChild("Interface"):WaitForChild("DiamondCount"):WaitForChild("Count")
+    local pg = player:WaitForChild("PlayerGui")
+    return pg:WaitForChild("Interface"):WaitForChild("DiamondCount"):WaitForChild("Count")
 end)
 if not success or not diamondPath then
-	warn("[Diamond Tracker] ❌ Cannot find Interface.DiamondCount.Count. Update path if necessary.")
-	return
+    warn("[Diamond Tracker] ❌ Cannot find Interface.DiamondCount.Count. Update path if necessary.")
+    return
 end
 
 local function parseNumberFromText(t)
-	local s = tostring(t or "")
-	-- allow numbers with commas and decimals, take first match
-	local num = s:gsub(",", ""):match("%d+")
-	return tonumber(num) or 0
+    local s = tostring(t or "")
+    local num = s:gsub(",", ""):match("%d+")
+    return tonumber(num) or 0
 end
 
 -- === Load Config ===
 local savedDiamond, savedUrl = 0, ""
 if canSave and isfile(SAVE_FILE) then
-	local ok, result = pcall(function()
-		return HttpService:JSONDecode(readfile(SAVE_FILE))
-	end)
-	if ok and result then
-		savedDiamond = tonumber(result.saved) or 0
-		savedUrl = tostring(result.proxy or "")
-	end
+    local ok, result = pcall(function()
+        return HttpService:JSONDecode(readfile(SAVE_FILE))
+    end)
+    if ok and result then
+        savedDiamond = tonumber(result.saved) or 0
+        savedUrl = tostring(result.proxy or "")
+    end
 end
 
--- === Safe HTTP Request detection ===
+-- === Safe HTTP Request
 local httpRequest = request or http_request or (syn and syn.request) or (http and http.request)
 if not httpRequest then
-	warn("[Diamond Tracker] ❌ HTTP request function not found in executor.")
-	return
+    warn("[Diamond Tracker] ❌ HTTP request function not found in executor.")
+    return
 end
 
--- send /track to notify server we joined (keeps session alive)
-local function sendTrack(callback)
-	if savedUrl == "" then return end
-	local ok, res = pcall(function()
-		return httpRequest({
-			Url = savedUrl .. "/track",
-			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = HttpService:JSONEncode({ username = username })
-		})
-	end)
-	if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
-		updateLog("✅ /track success")
-		if callback then task.delay(0.5, callback) end
-	else
-		updateLog("⚠️ /track failed")
-	end
-end
-
--- placeholder for UI log updater (defined after UI creation)
+-- placeholder for UI log updater
 local function updateLog(_) end
 
-local function sendToProxy()
-	if savedUrl == "" then
-		updateLog("❌ No Proxy URL set")
-		return
-	end
-
-	local currentDiamond = parseNumberFromText(diamondPath.Text)
-	local payloadObj = {
-		username = username,
-		diamonds = currentDiamond,
-		placeId = tostring(game.PlaceId)
-	}
-	local payload = HttpService:JSONEncode(payloadObj)
-	updateLog("⏱ Sending: " .. tostring(currentDiamond))
-
-	local ok, res = pcall(function()
-		return httpRequest({
-			Url = savedUrl .. "/diamond",
-			Method = "POST",
-			Headers = { ["Content-Type"] = "application/json" },
-			Body = payload
-		})
-	end)
-
-	if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
-		updateLog("✅ Sent: " .. tostring(currentDiamond))
-	else
-		updateLog("❌ Send failed: " .. tostring(res and res.StatusCode or "error"))
-		-- retry once after 5s
-		task.delay(5, sendToProxy)
-	end
+-- /track keeps session alive
+local function sendTrack(callback)
+    if savedUrl == "" then return end
+    local ok, res = pcall(function()
+        return httpRequest({
+            Url = savedUrl .. "/track",
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = HttpService:JSONEncode({ username = username })
+        })
+    end)
+    if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
+        updateLog("✅ /track success")
+        if callback then task.delay(0.5, callback) end
+    else
+        updateLog("⚠️ /track failed")
+    end
 end
 
--- Initial send shortly after load
+-- send to /diamond endpoint
+local function sendToProxy()
+    if savedUrl == "" then
+        updateLog("❌ No Proxy URL set")
+        return
+    end
+
+    local currentDiamond = parseNumberFromText(diamondPath.Text)
+    local payloadObj = {
+        username = username,
+        diamonds = currentDiamond,
+        placeId = tostring(game.PlaceId)
+    }
+    local payload = HttpService:JSONEncode(payloadObj)
+    updateLog("⏱ Sending: " .. tostring(currentDiamond))
+
+    local ok, res = pcall(function()
+        return httpRequest({
+            Url = savedUrl .. "/diamond",
+            Method = "POST",
+            Headers = { ["Content-Type"] = "application/json" },
+            Body = payload
+        })
+    end)
+
+    if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
+        updateLog("✅ Sent: " .. tostring(currentDiamond))
+    else
+        updateLog("❌ Send failed: " .. tostring(res and res.StatusCode or "error"))
+        task.delay(5, sendToProxy)
+    end
+end
+
+-- initial send
 task.delay(1.5, sendToProxy)
 
--- === Simple UI with logs under the two buttons ===
+-- === UI
 pcall(function() local old = CoreGui:FindFirstChild("DiamondTrackerUI"); if old then old:Destroy() end end)
 
 local gui = Instance.new("ScreenGui", CoreGui)
@@ -134,9 +133,8 @@ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
-title.Position = UDim2.new(0, 0, 0, 0)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-title.Text = "🔎 Diamond Tracker (V1.0.1)"
+title.Text = "💎 Diamond Tracker (Executor)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 16
@@ -166,7 +164,6 @@ diffLabel.TextSize = 16
 diffLabel.TextXAlignment = Enum.TextXAlignment.Left
 diffLabel.BorderSizePixel = 0
 
--- Proxy URL input
 local urlBox = Instance.new("TextBox", frame)
 urlBox.Position = UDim2.new(0.05, 0, 0, 86)
 urlBox.Size = UDim2.new(0.9, 0, 0, 26)
@@ -198,7 +195,6 @@ resetBtn.TextColor3 = Color3.new(1, 1, 1)
 resetBtn.BackgroundColor3 = Color3.fromRGB(231, 76, 60)
 Instance.new("UICorner", resetBtn).CornerRadius = UDim.new(0, 6)
 
--- LOG LABEL placed directly below the two buttons
 local logLabel = Instance.new("TextLabel", frame)
 logLabel.Position = UDim2.new(0.05, 0, 0, 166)
 logLabel.Size = UDim2.new(0.9, 0, 0, 76)
@@ -212,56 +208,51 @@ logLabel.Font = Enum.Font.SourceSans
 logLabel.TextSize = 14
 Instance.new("UICorner", logLabel).CornerRadius = UDim.new(0, 6)
 
--- Implement updateLog now that UI element exists
 function updateLog(msg)
-	if not msg then return end
-	local time = os.date("%H:%M:%S")
-	local prev = tostring(logLabel.Text or "")
-	-- keep only last ~6 lines to avoid overflow
-	local lines = {}
-	for s in prev:gmatch("[^\n]+") do table.insert(lines, s) end
-	table.insert(lines, ("[%s] %s"):format(time, msg))
-	if #lines > 8 then
-		-- drop oldest, keep header "Logs:" if present
-		while #lines > 8 do table.remove(lines, 1) end
-	end
-	logLabel.Text = table.concat(lines, "\n")
+    if not msg then return end
+    local time = os.date("%H:%M:%S")
+    local prev = tostring(logLabel.Text or "")
+    local lines = {}
+    for s in prev:gmatch("[^\n]+") do table.insert(lines, s) end
+    table.insert(lines, ("[%s] %s"):format(time, msg))
+    if #lines > 8 then
+        while #lines > 8 do table.remove(lines, 1) end
+    end
+    logLabel.Text = table.concat(lines, "\n")
 end
 
--- Events
 urlBox:GetPropertyChangedSignal("Text"):Connect(function()
-	savedUrl = urlBox.Text
-	if canSave then
-		pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedDiamond, proxy = savedUrl }))
-	end
+    savedUrl = urlBox.Text
+    if canSave then
+        pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedDiamond, proxy = savedUrl }))
+    end
 end)
 
 sendBtn.MouseButton1Click:Connect(function()
-	sendBtn.Text = "Sending..."
-	updateLog("initiating send")
-	sendTrack()
-	task.delay(0.2, function() sendToProxy() end)
-	task.delay(1.5, function() sendBtn.Text = "Send" end)
+    sendBtn.Text = "Sending..."
+    updateLog("initiating send")
+    sendTrack()
+    task.delay(0.2, sendToProxy)
+    task.delay(1.5, function() sendBtn.Text = "Send" end)
 end)
 
 resetBtn.MouseButton1Click:Connect(function()
-	savedDiamond = parseNumberFromText(diamondPath.Text)
-	if canSave then
-		pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedDiamond, proxy = savedUrl }))
-	end
-	updateLog("reset saved value to " .. tostring(savedDiamond))
+    savedDiamond = parseNumberFromText(diamondPath.Text)
+    if canSave then
+        pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedDiamond, proxy = savedUrl }))
+    end
+    updateLog("reset saved value to " .. tostring(savedDiamond))
 end)
 
--- Live UI Update
 task.spawn(function()
-	while task.wait(1) do
-		local cur = parseNumberFromText(diamondPath.Text)
-		diamondLabel.Text = "💎 Current Diamonds: " .. cur
-		diffLabel.Text = "📈 Gained: " .. (cur - savedDiamond)
-	end
+    while task.wait(1) do
+        local cur = parseNumberFromText(diamondPath.Text)
+        diamondLabel.Text = "💎 Current Diamonds: " .. cur
+        diffLabel.Text = "📈 Gained: " .. (cur - savedDiamond)
+    end
 end)
 
--- Simple FPS counter (optional)
+-- Simple FPS counter
 pcall(function()
 	local fpsGui = Instance.new("ScreenGui", CoreGui)
 	fpsGui.Name = "FPSCounterUI"
