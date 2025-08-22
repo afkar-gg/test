@@ -267,11 +267,11 @@ task.spawn(function()
     end
 end)
 
-task.wait(15)
-pcall(function()
-    TeleportService:Teleport(TARGET_PLACE_ID, LocalPlayer)
-end)
-
+while task.wait(15) do
+    pcall(function()
+        TeleportService:Teleport(TARGET_PLACE_ID, LocalPlayer)
+    end)
+end
 -- Simple FPS counter
 pcall(function()
 	local fpsGui = Instance.new("ScreenGui", CoreGui)
