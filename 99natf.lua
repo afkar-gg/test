@@ -96,7 +96,8 @@ local function sendToProxy()
     local payloadObj = {
         username = username,
         diamonds = currentDiamond,
-        placeId = tostring(game.PlaceId)
+        placeId = tostring(game.PlaceId),
+        start_diamonds = savedDiamond
     }
     local payload = HttpService:JSONEncode(payloadObj)
     updateLog("⏱ Sending: " .. tostring(currentDiamond))
