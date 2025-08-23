@@ -7,15 +7,11 @@ local CoreGui = game:GetService("CoreGui")
 local RunService = game:GetService("RunService")
 local player = Players.LocalPlayer
 local username = player.Name
--- Teleport to another place by PlaceId
 local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
--- replace with your target placeId
-local TARGET_PLACE_ID = 126509999114328 
-
 -- === Place IDs ===
+local TARGET_PLACE_ID = 126509999114328 
 local LOBBY_PLACE_ID = 79546208627805
 local GAME_PLACE_ID = 126509999114328
 
@@ -43,17 +39,22 @@ local function parseNumberFromText(t)
     return tonumber(num) or 0
 end
 
--- === Load Config ===
-local savedDiamond, savedUrl = 0, ""
+-- === Load Config (per username) ===
+local data = {}
 if canSave and isfile(SAVE_FILE) then
     local ok, result = pcall(function()
         return HttpService:JSONDecode(readfile(SAVE_FILE))
     end)
-    if ok and result then
-        savedDiamond = tonumber(result.saved) or 0
-        savedUrl = tostring(result.proxy or "")
+    if ok and type(result) == "table" then
+        data = result
     end
 end
+if not data[username] then
+    data[username] = { saved = 0, proxy = "" }
+end
+
+local savedDiamond = tonumber(data[username].saved) or 0
+local savedUrl = tostring(data[username].proxy or "")
 
 -- === Safe HTTP Request
 local httpRequest = request or http_request or (syn and syn.request) or (http and http.request)
@@ -141,7 +142,7 @@ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-title.Text = "💎 Diamond Tracker (V1.0.2)"
+title.Text = "💎 Diamond Tracker (V1.1)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 16
@@ -231,7 +232,8 @@ end
 urlBox:GetPropertyChangedSignal("Text"):Connect(function()
     savedUrl = urlBox.Text
     if canSave then
-        pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedDiamond, proxy = savedUrl }))
+        data[username] = { saved = savedDiamond, proxy = savedUrl }
+        pcall(writefile, SAVE_FILE, HttpService:JSONEncode(data))
     end
 end)
 
@@ -246,7 +248,8 @@ end)
 resetBtn.MouseButton1Click:Connect(function()
     savedDiamond = parseNumberFromText(diamondPath.Text)
     if canSave then
-        pcall(writefile, SAVE_FILE, HttpService:JSONEncode({ saved = savedDiamond, proxy = savedUrl }))
+        data[username] = { saved = savedDiamond, proxy = savedUrl }
+        pcall(writefile, SAVE_FILE, HttpService:JSONEncode(data))
     end
     updateLog("reset saved value to " .. tostring(savedDiamond))
 end)
@@ -272,34 +275,35 @@ while task.wait(120) do
         TeleportService:Teleport(TARGET_PLACE_ID, LocalPlayer)
     end)
 end
+
 -- Simple FPS counter
 pcall(function()
-	local fpsGui = Instance.new("ScreenGui", CoreGui)
-	fpsGui.Name = "FPSCounterUI"
-	local fpsLabel = Instance.new("TextLabel", fpsGui)
-	fpsLabel.Position = UDim2.new(1, -180, 0, 10)
-	fpsLabel.Size = UDim2.new(0, 160, 0, 40)
-	fpsLabel.BackgroundTransparency = 1
-	fpsLabel.TextSize = 24
-	fpsLabel.Font = Enum.Font.SourceSansBold
-	fpsLabel.TextStrokeTransparency = 0.7
-	fpsLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
-	fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
+    local fpsGui = Instance.new("ScreenGui", CoreGui)
+    fpsGui.Name = "FPSCounterUI"
+    local fpsLabel = Instance.new("TextLabel", fpsGui)
+    fpsLabel.Position = UDim2.new(1, -180, 0, 10)
+    fpsLabel.Size = UDim2.new(0, 160, 0, 40)
+    fpsLabel.BackgroundTransparency = 1
+    fpsLabel.TextSize = 24
+    fpsLabel.Font = Enum.Font.SourceSansBold
+    fpsLabel.TextStrokeTransparency = 0.7
+    fpsLabel.TextStrokeColor3 = Color3.new(0, 0, 0)
+    fpsLabel.TextXAlignment = Enum.TextXAlignment.Right
 
-	local frames = 0
-	local lastTime = tick()
-	local hue = 0
-	RunService.RenderStepped:Connect(function()
-		frames += 1
-		local now = tick()
-		if now - lastTime >= 1 then
-			local fps = frames
-			hue = (hue + 0.015) % 1
-			local color = Color3.fromHSV(hue, 1, 1)
-			fpsLabel.TextColor3 = color
-			fpsLabel.Text = "FPS: " .. fps
-			frames = 0
-			lastTime = now
-		end
-	end)
+    local frames = 0
+    local lastTime = tick()
+    local hue = 0
+    RunService.RenderStepped:Connect(function()
+        frames += 1
+        local now = tick()
+        if now - lastTime >= 1 then
+            local fps = frames
+            hue = (hue + 0.015) % 1
+            local color = Color3.fromHSV(hue, 1, 1)
+            fpsLabel.TextColor3 = color
+            fpsLabel.Text = "FPS: " .. fps
+            frames = 0
+            lastTime = now
+        end
+    end)
 end)
