@@ -96,7 +96,7 @@ local function sendToProxy()
         local currentDiamond = parseNumberFromText(diamondPath.Text)
         while currentDiamond == 0 do
             updateLog("⏸ Waiting... diamond = 0")
-            task.wait(2)
+            task.wait(0.1)
             currentDiamond = parseNumberFromText(diamondPath.Text)
         end
 
