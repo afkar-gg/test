@@ -92,31 +92,39 @@ local function sendToProxy()
         return
     end
 
-    local currentDiamond = parseNumberFromText(diamondPath.Text)
-    local payloadObj = {
-        username = username,
-        diamonds = currentDiamond,
-        placeId = tostring(game.PlaceId),
-        start_diamonds = savedDiamond
-    }
-    local payload = HttpService:JSONEncode(payloadObj)
-    updateLog("⏱ Sending: " .. tostring(currentDiamond))
+    task.spawn(function()
+        local currentDiamond = parseNumberFromText(diamondPath.Text)
+        while currentDiamond == 0 do
+            updateLog("⏸ Waiting... diamond = 0")
+            task.wait(2)
+            currentDiamond = parseNumberFromText(diamondPath.Text)
+        end
 
-    local ok, res = pcall(function()
-        return httpRequest({
-            Url = savedUrl .. "/diamond",
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = payload
-        })
+        local payloadObj = {
+            username = username,
+            diamonds = currentDiamond,
+            placeId = tostring(game.PlaceId),
+            start_diamonds = savedDiamond
+        }
+        local payload = HttpService:JSONEncode(payloadObj)
+        updateLog("⏱ Sending: " .. tostring(currentDiamond))
+
+        local ok, res = pcall(function()
+            return httpRequest({
+                Url = savedUrl .. "/diamond",
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = payload
+            })
+        end)
+
+        if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
+            updateLog("✅ Sent: " .. tostring(currentDiamond))
+        else
+            updateLog("❌ Send failed: " .. tostring(res and res.StatusCode or "error"))
+            task.delay(5, sendToProxy)
+        end
     end)
-
-    if ok and res and (res.StatusCode == 200 or res.StatusCode == 201) then
-        updateLog("✅ Sent: " .. tostring(currentDiamond))
-    else
-        updateLog("❌ Send failed: " .. tostring(res and res.StatusCode or "error"))
-        task.delay(5, sendToProxy)
-    end
 end
 
 -- initial send
